@@ -7,5 +7,5 @@ beautifulsoup4
 lxml
 scikit-learn
 xgboost
-tensorflow
+tensorflow-cpu
 numpy
