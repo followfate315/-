@@ -17,7 +17,7 @@ from sklearn.preprocessing import StandardScaler
 
 # 固定隨機種子，確保結果可複現
 np.random.seed(42)
-tf.random.set_seed(42)
+# tf.random.set_seed(42)
 
 # 1. 網頁頂級配置
 st.set_page_config(page_title="🚀 頂級 AI 量化交易終端系統 - 多模型聯防勝率版", layout="wide")
