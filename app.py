@@ -300,9 +300,7 @@ def train_ensemble_ai(df, days, target_pct):
         }
         
         # 機率加權權重
-        weights = {"Random Forest": 0.30, "XGBoost": 0.45, "LSTM (RNN)": 0.25}
-        weighted_avg_prob = sum(models_prob[m] * weights[m] for m in models_prob)
-        bullish_votes = sum(1 for p in models_prob.values() if p >= 0.5)
+        weights = {"Random Forest": 0.30, "XGBoost": 0.45, "Neural Network (MLP)": 0.25}
 
         return {
             "models_prob": models_prob,
