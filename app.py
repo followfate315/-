@@ -250,6 +250,7 @@ def analyze_news_sentiment(title, desc):
 # ==============================================================================
 # 🤖 1. 動態加權三模型聯防大腦 (Weighted Ensemble Classifier Engine)
 # ==============================================================================
+@st.cache_resource(ttl=3600, show_spinner=False)
 def train_ensemble_ai(df, days, target_pct):
     try:
         df_feat = build_advanced_features(df)
