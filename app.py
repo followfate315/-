@@ -484,9 +484,9 @@ if df is not None:
             
         with mc3:
             st.markdown(f"""<div class="premium-card">
-                <div style="color:#8b949e; font-size:13px;">LSTM (深度學習時間序列)</div>
-                <div style="color:{'#ff7b72' if probs['LSTM (RNN)']>=0.5 else '#56d364'}; font-size:26px; font-weight:700;">{probs['LSTM (RNN)']*100:.1f}%</div>
-                <div style="color:#8b949e; font-size:12px;">適合捕捉時間連續性與週期規律</div>
+                <div style="color:#8b949e; font-size:13px;">Neural Network (MLP 神經網路)</div>
+                <div style="color:{'#ff7b72' if probs['Neural Network (MLP)']>=0.5 else '#56d364'}; font-size:26px; font-weight:700;">{probs['Neural Network (MLP)']*100:.1f}%</div>
+                <div style="color:#8b949e; font-size:12px;">適合捕捉非線性特徵與週期規律</div>
             </div>""", unsafe_allow_html=True)
 
     st.markdown("<div style='border-bottom: 1px gradient; background: linear-gradient(to right, rgba(88,166,255,0), rgba(88,166,255,0.5), rgba(88,166,255,0)); height: 1px; margin: 25px 0;'></div>", unsafe_allow_html=True)
