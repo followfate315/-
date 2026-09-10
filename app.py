@@ -8,11 +8,10 @@ from bs4 import BeautifulSoup
 from datetime import datetime, timedelta
 import numpy as np
 
-# 機器學習與深度學習套件
+# 機器學習與深度學習套件（Classifier）
 from sklearn.ensemble import RandomForestClassifier
 from xgboost import XGBClassifier
-from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import LSTM, Dense, Dropout
+from sklearn.neural_network import MLPClassifier
 from sklearn.preprocessing import StandardScaler
 import tensorflow as tf
 
@@ -288,31 +287,16 @@ def train_ensemble_ai(df, days, target_pct):
         # 3. LSTM (數據正規化與時間序列建構)
         scaler = StandardScaler()
         X_train_scaled = scaler.fit_transform(X_train)
+        latest_scaled = scaler.transform(latest_features)
 
-        time_steps = 5
-        X_seq, y_seq = [], []
-        for i in range(time_steps, len(X_train_scaled)):
-            X_seq.append(X_train_scaled[i-time_steps:i])
-            y_seq.append(y_train.iloc[i])
-        
-        X_seq, y_seq = np.array(X_seq), np.array(y_seq)
-        
-        lstm = Sequential([
-            LSTM(32, input_shape=(time_steps, X_train_scaled.shape[1]), return_sequences=False),
-            Dropout(0.3),
-            Dense(16, activation='relu'),
-            Dense(1, activation='sigmoid')
-        ])
-        lstm.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
-        lstm.fit(X_seq, y_seq, epochs=20, batch_size=16, verbose=0)
-        
-        last_seq = X_train_scaled[-time_steps:].reshape(1, time_steps, X_train_scaled.shape[1])
-        lstm_prob = float(lstm.predict(last_seq, verbose=0)[0][0])
+        nn = MLPClassifier(hidden_layer_sizes=(32, 16), max_iter=200, random_state=42)
+        nn.fit(X_train_scaled, y_train)
+        nn_prob = nn.predict_proba(latest_scaled)[0][1]
 
         models_prob = {
             "Random Forest": rf_prob,
             "XGBoost": xgb_prob,
-            "LSTM (RNN)": lstm_prob
+            "Neural Network (MLP)": nn_prob
         }
         
         # 機率加權權重
