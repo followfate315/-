@@ -1,0 +1,11 @@
+streamlit
+pandas
+plotly
+twstock
+requests
+beautifulsoup4
+lxml
+scikit-learn
+xgboost
+tensorflow
+numpy
