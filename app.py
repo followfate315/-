@@ -13,7 +13,7 @@ from sklearn.ensemble import RandomForestClassifier
 from xgboost import XGBClassifier
 from sklearn.neural_network import MLPClassifier
 from sklearn.preprocessing import StandardScaler
-import tensorflow as tf
+# import tensorflow as tf
 
 # 固定隨機種子，確保結果可複現
 np.random.seed(42)
