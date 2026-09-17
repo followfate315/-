@@ -250,67 +250,70 @@ def analyze_news_sentiment(title, desc):
 # ==============================================================================
 # 🤖 1. 動態加權三模型聯防大腦 (Weighted Ensemble Classifier Engine)
 # ==============================================================================
+from sklearn.preprocessing import StandardScaler
+
 @st.cache_resource(ttl=3600, show_spinner=False)
 def train_ensemble_ai(df, days, target_pct):
     try:
         df_feat = build_advanced_features(df)
         
-        # 精選特徵因子
-        feature_cols = [
-            'Bias_MA5', 'Bias_MA20', 'RSI_14', 'MACD_Hist', 
-            'K_9', 'D_9', 'Daily_Return', 'Price_Range', 
-            'Vol_ROC', 'Hist_Volatility', 'BB_Width'
-        ]
+        # 1. 建立 Target
+        df_feat['Target'] = (df_feat['Close'].shift(-days) / df_feat['Close'] - 1) >= (target_pct / 100.0)
+        df_feat['Target'] = df_feat['Target'].astype(int)
         
-        future_return = (df_feat['Close'].shift(-days) - df_feat['Close']) / df_feat['Close'] * 100
-        df_feat['Target'] = (future_return >= target_pct).astype(int)
+        # 2. 清除 NaN 與 Inf
+        df_clean = df_feat.replace([np.inf, -np.inf], np.nan).dropna()
         
-        clean_df = df_feat.dropna(subset=feature_cols + ['Target'])
-        if len(clean_df) < 60: return None
+        if len(df_clean) < 50:
+            return 0.0, "0/3 個模型", {}
+
+        # 3. 準備特徵
+        drop_cols = ['Open', 'High', 'Low', 'Close', 'Volume', 'Target']
+        feature_cols = [c for c in df_clean.columns if c not in drop_cols]
         
-        X_train = clean_df[feature_cols]
-        y_train = clean_df['Target']
-        latest_features = df_feat.dropna(subset=feature_cols)[feature_cols].iloc[[-1]]
+        X = df_clean[feature_cols]
+        y = df_clean['Target']
 
-        # 1. Random Forest (限制最大深度防止過擬合)
-        rf = RandomForestClassifier(n_estimators=150, max_depth=4, random_state=42)
-        rf.fit(X_train, y_train)
-        rf_prob = rf.predict_proba(latest_features)[0][1]
-
-        # 2. XGBoost (優化超參數)
-        xgb = XGBClassifier(
-            n_estimators=100, max_depth=3, learning_rate=0.03, 
-            subsample=0.8, colsample_bytree=0.8, eval_metric='logloss', random_state=42
-        )
-        xgb.fit(X_train, y_train)
-        xgb_prob = xgb.predict_proba(latest_features)[0][1]
-
-        # 3. LSTM (數據正規化與時間序列建構)
+        # 4. 標準化
         scaler = StandardScaler()
-        X_train_scaled = scaler.fit_transform(X_train)
-        latest_scaled = scaler.transform(latest_features)
+        X_scaled = scaler.fit_transform(X)
 
-        nn = MLPClassifier(hidden_layer_sizes=(32, 16), max_iter=200, random_state=42)
-        nn.fit(X_train_scaled, y_train)
-        nn_prob = nn.predict_proba(latest_scaled)[0][1]
+        # 5. 訓練模型與預測
+        rf = RandomForestClassifier(n_estimators=100, max_depth=5, random_state=42)
+        rf.fit(X, y)
+        rf_prob = rf.predict_proba(X[-1:])[:, 1][0]
 
+        xgb = XGBClassifier(n_estimators=100, max_depth=3, learning_rate=0.05, random_state=42, eval_metric='logloss')
+        xgb.fit(X, y)
+        xgb_prob = xgb.predict_proba(X[-1:])[:, 1][0]
+
+        mlp = MLPClassifier(hidden_layer_sizes=(64, 32), max_iter=300, random_state=42)
+        mlp.fit(X_scaled, y)
+        latest_scaled = scaler.transform(X[-1:])
+        mlp_prob = mlp.predict_proba(latest_scaled)[:, 1][0]
+
+        # 6. 勝率與投票計算
         models_prob = {
             "Random Forest": rf_prob,
             "XGBoost": xgb_prob,
-            "Neural Network (MLP)": nn_prob
+            "Neural Network (MLP)": mlp_prob
         }
         
-        # 機率加權權重
+        # 統計有多少個模型預測看漲 (機率 >= 0.5)
+        bullish_count = sum(1 for p in models_prob.values() if p >= 0.5)
+        voting_str = f"{bullish_count}/3 個模型"
+
+        # 加權勝率
         weights = {"Random Forest": 0.30, "XGBoost": 0.45, "Neural Network (MLP)": 0.25}
+        ensemble_prob = sum(models_prob[m] * weights[m] for m in models_prob)
+        
+        # 正確回傳 3 個變數
+        return ensemble_prob, voting_str, models_prob
 
-        return {
-            "models_prob": models_prob,
-            "avg_prob": weighted_avg_prob,
-            "bullish_votes": bullish_votes
-        }
-    except Exception:
-        return None
-
+    except Exception as e:
+        # 印出錯誤方便調試
+        st.error(f"模型計算錯誤：{e}")
+        return 0.0, "0/3 個模型", {}
 # ==============================================================================
 # 2. 【數據源】
 # ==============================================================================
