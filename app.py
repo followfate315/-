@@ -251,69 +251,71 @@ def analyze_news_sentiment(title, desc):
 # 🤖 1. 動態加權三模型聯防大腦 (Weighted Ensemble Classifier Engine)
 # ==============================================================================
 from sklearn.preprocessing import StandardScaler
+import pandas as pd
+import numpy as np
 
 @st.cache_resource(ttl=3600, show_spinner=False)
 def train_ensemble_ai(df, days, target_pct):
     try:
-        df_feat = build_advanced_features(df)
+        df_feat = build_advanced_features(df).copy()
         
         # 1. 建立 Target
         df_feat['Target'] = (df_feat['Close'].shift(-days) / df_feat['Close'] - 1) >= (target_pct / 100.0)
         df_feat['Target'] = df_feat['Target'].astype(int)
         
-        # 2. 清除 NaN 與 Inf
+        # 2. 清除缺值
         df_clean = df_feat.replace([np.inf, -np.inf], np.nan).dropna()
         
         if len(df_clean) < 50:
-            return 0.0, "0/3 個模型", {}
+            return {'avg_prob': 0.0, 'bullish_votes': '0/3 個模型', 'models_prob': {}}
 
-        # 3. 準備特徵
-        drop_cols = ['Open', 'High', 'Low', 'Close', 'Volume', 'Target']
-        feature_cols = [c for c in df_clean.columns if c not in drop_cols]
+        # 3. 準備特徵（務必排除 Date、Timestamp 等非數字型態欄位）
+        drop_cols = ['Open', 'High', 'Low', 'Close', 'Volume', 'Target', 'Date', 'Datetime']
+        feature_cols = [c for c in df_clean.columns if c not in drop_cols and not pd.api.types.is_datetime64_any_dtype(df_clean[c])]
         
-        X = df_clean[feature_cols]
+        X = df_clean[feature_cols].select_dtypes(include=[np.number]) # 確保全部為數值型態
         y = df_clean['Target']
 
-        # 4. 標準化
+        # 4. 標準化 (MLP 必備)
         scaler = StandardScaler()
         X_scaled = scaler.fit_transform(X)
 
-        # 5. 訓練模型與預測
+        # 5. 模型訓練
         rf = RandomForestClassifier(n_estimators=100, max_depth=5, random_state=42)
         rf.fit(X, y)
-        rf_prob = rf.predict_proba(X[-1:])[:, 1][0]
+        rf_prob = float(rf.predict_proba(X.iloc[-1:])[:, 1][0])
 
         xgb = XGBClassifier(n_estimators=100, max_depth=3, learning_rate=0.05, random_state=42, eval_metric='logloss')
         xgb.fit(X, y)
-        xgb_prob = xgb.predict_proba(X[-1:])[:, 1][0]
+        xgb_prob = float(xgb.predict_proba(X.iloc[-1:])[:, 1][0])
 
         mlp = MLPClassifier(hidden_layer_sizes=(64, 32), max_iter=300, random_state=42)
         mlp.fit(X_scaled, y)
-        latest_scaled = scaler.transform(X[-1:])
-        mlp_prob = mlp.predict_proba(latest_scaled)[:, 1][0]
+        latest_scaled = scaler.transform(X.iloc[-1:])
+        mlp_prob = float(mlp.predict_proba(latest_scaled)[:, 1][0])
 
-        # 6. 勝率與投票計算
+        # 6. 計算勝率與投票
         models_prob = {
             "Random Forest": rf_prob,
             "XGBoost": xgb_prob,
             "Neural Network (MLP)": mlp_prob
         }
         
-        # 統計有多少個模型預測看漲 (機率 >= 0.5)
         bullish_count = sum(1 for p in models_prob.values() if p >= 0.5)
         voting_str = f"{bullish_count}/3 個模型"
 
-        # 加權勝率
         weights = {"Random Forest": 0.30, "XGBoost": 0.45, "Neural Network (MLP)": 0.25}
         ensemble_prob = sum(models_prob[m] * weights[m] for m in models_prob)
         
-        # 正確回傳 3 個變數
-        return ensemble_prob, voting_str, models_prob
+        # 回傳 Dictionary 格式以符合主程式需求
+        return {
+            'avg_prob': ensemble_prob,
+            'bullish_votes': voting_str,
+            'models_prob': models_prob
+        }
 
     except Exception as e:
-        # 印出錯誤方便調試
-        st.error(f"模型計算錯誤：{e}")
-        return 0.0, "0/3 個模型", {}
+        return {'avg_prob': 0.0, 'bullish_votes': '0/3 個模型', 'models_prob': {}, 'error': str(e)}
 # ==============================================================================
 # 2. 【數據源】
 # ==============================================================================
@@ -377,7 +379,7 @@ with st.spinner(f'🚀 正在載入 {stock_name} 並啟動三模型 (RF/XGB/LSTM
 
 if df is not None:
     df['Date'] = pd.to_datetime(df['Date'])
-    ai_results = train_ensemble_ai(df, predict_days, target_return_pct)
+    ai_results = train_ensemble_ai(df, days, target_pct)
 
     # --- 💎 數據總覽與日期推算 ---
     latest_data = df.iloc[-1]
@@ -415,8 +417,9 @@ if df is not None:
                 <div style="color:#8b949e; font-size:12px;">每日股數即時統計</div>
             </div>""", unsafe_allow_html=True)
         with sub2:
+            # 渲染 AI 勝率與投票
             avg_p = ai_results['avg_prob'] * 100 if ai_results else 0
-            votes = ai_results['bullish_votes'] if ai_results else 0
+            votes = ai_results['bullish_votes'] if ai_results else "0/3 個模型"
             st.markdown(f"""<div class="premium-card" style="border-color:#ff9b44;">
                 <div style="color:#ff9b44; font-size:13px;">📅 預測目標：{target_date_str} (>{target_return_pct}%)</div>
                 <div style="color:#ff9b44; font-size:32px; font-weight:800;">{avg_p:.1f}% 勝率</div>
@@ -433,8 +436,8 @@ if df is not None:
 
     with col_right:
         if ai_results:
-            avg_p = ai_results['avg_prob']
-            votes = ai_results['bullish_votes']
+            avg_p = ai_results['avg_prob'] * 100 if ai_results else 0
+            votes = ai_results['bullish_votes'] if ai_results else "0/3 個模型"
             
             # 使用軟投票機率門檻設定決策條件
             if votes >= 2 and avg_p >= 0.58:
@@ -470,7 +473,7 @@ if df is not None:
     st.markdown(f"### 🤖 三大 AI 模型看漲勝率明細 (預測目標日：{target_date_str})")
     if ai_results:
         mc1, mc2, mc3 = st.columns(3)
-        probs = ai_results['models_prob']
+        probs = ai_results.get('models_prob', {})
         
         with mc1:
             st.markdown(f"""<div class="premium-card">
