@@ -54,7 +54,10 @@ def get_stock_data(stock_id="2317", start_year=2025, start_month=1, max_retries=
         return None
 
 if __name__ == "__main__":
-    target_stock = "2454"
+    # 使用 input() 讓使用者手動輸入，並自動去除頭尾空格；若直接按 Enter 則預設為 "2317"
+    user_input = input("請輸入股票代碼 (預設 2330): ").strip()
+    target_stock = user_input if user_input else "2330"
+
     stock_df = get_stock_data(stock_id=target_stock, start_year=2025, start_month=1)
 
     if stock_df is not None:
