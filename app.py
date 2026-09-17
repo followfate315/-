@@ -379,7 +379,7 @@ with st.spinner(f'🚀 正在載入 {stock_name} 並啟動三模型 (RF/XGB/LSTM
 
 if df is not None:
     df['Date'] = pd.to_datetime(df['Date'])
-    ai_results = train_ensemble_ai(df, days, target_pct)
+    ai_results = train_ensemble_ai(df, predict_days, target_pct)
 
     # --- 💎 數據總覽與日期推算 ---
     latest_data = df.iloc[-1]
