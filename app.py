@@ -441,22 +441,27 @@ if df is not None:
 
     with col_right:
         if ai_results:
-            avg_p = ai_results['avg_prob'] * 100 if ai_results else 0
-            votes = ai_results['bullish_votes'] if ai_results else "0/3 個模型"
-            
-            # 使用軟投票機率門檻設定決策條件
-            if votes >= 2 and avg_p >= 0.58:
-                decision_style = "decision-panel decision-buy"
-                decision_title = "🔴 AI 聯防決策：多頭共識強烈"
-                decision_body = f"已有 {votes}/3 個 AI 模型達成看漲共識，預估在 <b>{target_date_str}</b> 前達標勝率為 {avg_p*100:.1f}%！建議建立多頭部位，動態停損點設為 ${stop_loss_price:.2f}。"
-            elif votes <= 1 or avg_p <= 0.42:
-                decision_style = "decision-panel decision-sell"
-                decision_title = "🟢 AI 聯防決策：空頭防禦觀望"
-                decision_body = f"預估在 <b>{target_date_str}</b> 前達標勝率偏低 ({avg_p*100:.1f}%)。多數 AI 模型顯示動能不足或有修正風險，建議保留現金。"
-            else:
-                decision_style = "decision-panel decision-wait"
-                decision_title = "🟡 AI 聯防決策：多空觀望帶 (信心度適中)"
-                decision_body = f"模型間呈現分歧或漲升信心尚待確認（看漲投票: {votes}/3，至 <b>{target_date_str}</b> 加權勝率: {avg_p*100:.1f}%）。建議等待突破 signals。"
+        avg_p = ai_results.get('avg_prob', 0) * 100
+        votes_str = ai_results.get('bullish_votes', '0/3 個模型')
+        # 解析字串中的看漲模型數量 (例如從 "0/3 個模型" 提取出數字 0)
+        try:
+            bullish_count = int(votes_str.split('/')[0])
+        except Exception:
+            bullish_count = 0
+
+        # 使用軟投票機制門檻設定決策條件
+        if bullish_count >= 2 and avg_p >= 50.0:
+            decision_style = "decision-panel decision-buy"
+            decision_title = "🔴 AI 聯防決策：多頭共識強烈"
+            decision_body = f"已有 {bullish_count}/3 個 AI 模型達成看漲共識，預估在 <b>{target_date_str}</b> 前達標勝率為 {avg_p:.1f}%！建議建立多頭部位，動態停損點設為 ${stop_loss_price:.2f}。"
+        elif bullish_count <= 1 or avg_p <= 40.0:
+            decision_style = "decision-panel decision-sell"
+            decision_title = "🟢 AI 聯防決策：空頭防禦觀望"
+            decision_body = f"預估在 <b>{target_date_str}</b> 前達標勝率偏低 ({avg_p:.1f}%)。多數 AI 模型顯示動能不足或有修正風險，建議保留現金。"
+        else:
+            decision_style = "decision-panel decision-wait"
+            decision_title = "🟡 AI 聯防決策：多空觀望帶 (信心度適中)"
+            decision_body = f"模型間呈現分歧或漲升信心尚待確認 (看漲投票: {votes_str}，至 <b>{target_date_str}</b> 加權勝率: {avg_p:.1f}%)。建議等待突破 signals。"
         else:
             decision_style = "decision-panel decision-wait"
             decision_title = "⚠️ 數據不足"
