@@ -441,11 +441,12 @@ if df is not None:
 
     with col_right:
         if ai_results:
-        avg_p = ai_results.get('avg_prob', 0) * 100
-        votes_str = ai_results.get('bullish_votes', '0/3 個模型')
-        # 解析字串中的看漲模型數量 (例如從 "0/3 個模型" 提取出數字 0)
+            avg_p = ai_results.get('avg_prob', 0) * 100
+            votes_str = ai_results.get('bullish_votes', '0/3 個模型')
+            
+            # 提取數字看漲模型數量
             try:
-                bullish_count = int(votes_str.split('/')[0])
+                bullish_count = int(str(votes_str).split('/')[0])
             except Exception:
                 bullish_count = 0
     
@@ -466,7 +467,6 @@ if df is not None:
             decision_style = "decision-panel decision-wait"
             decision_title = "⚠️ 數據不足"
             decision_body = "無法計算 AI 模型投票。"
-
         st.markdown(f"""
             <div class="{decision_style}">
                 <div style="font-size:15px; text-transform:uppercase; letter-spacing:1px; margin-bottom:5px;">AI Ensemble Decision</div>
